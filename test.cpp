@@ -1,5 +1,7 @@
+
 #include <gtest/gtest.h>
 #include "svm_tree.h"
+#include <math.h>
 #include <iostream>
 #include <tr1/unordered_set>
 using namespace std;
@@ -18,7 +20,7 @@ TEST(Tree,tree_traverse)
 	node4->SetNodeName("D");
 	node5->SetNodeName("E");
 	treeDouble.SetRoot(node1);
-    treeDouble.AddNode(node1, node2);
+    treeDouble.AddNode(node1, node2);    
 	treeDouble.AddNode(node1, node3);
 	treeDouble.AddNode(node2, node4);
     treeDouble.AddNode(node2, node5);
@@ -32,11 +34,21 @@ TEST(Tree,tree_traverse)
     }
     ASSERT_EQ(5, node_count);
 	ASSERT_EQ("A", node_vec[0]->GetNodeName());
+    ASSERT_EQ(0, node_vec[0]->m_level);
     ASSERT_EQ("B", node_vec[1]->GetNodeName());
+    ASSERT_EQ(1, node_vec[1]->m_level);
     ASSERT_EQ("D", node_vec[2]->GetNodeName());
+    ASSERT_EQ(2, node_vec[2]->m_level);
     ASSERT_EQ("E", node_vec[3]->GetNodeName());
+    ASSERT_EQ(2, node_vec[3]->m_level);
     ASSERT_EQ("C", node_vec[4]->GetNodeName());
-    treeDouble.ReleaseTree();
+    ASSERT_EQ(1, node_vec[4]->m_level);
+    ASSERT_EQ(1, node_vec[4]->m_level);
+    ASSERT_EQ(2, treeDouble.Distance("B","C"));
+    ASSERT_EQ(1, treeDouble.Distance("A","B"));
+    ASSERT_EQ(2, treeDouble.Distance("D","E"));
+    ASSERT_EQ(3, treeDouble.Distance("D","C"));        
+    treeDouble.ReleaseTree();    
 }
 TEST(Tree,findName)
 {
@@ -156,36 +168,70 @@ TEST(TestSeedsImages, test_loading)
   treeClassifier.CreateTree("treeFile.txt");
   LoadSeedImg(treeClassifier, "list/SeedImages.txt","1");
   node1 = treeClassifier.FindByName("C");
-  ASSERT_EQ("list/1.txt",node1->m_data.GetDataFile());
+  ASSERT_EQ("list/1.txt",node1->m_data->GetDataFile());
   node1 = treeClassifier.FindByName("D");
-  ASSERT_EQ("list/2.txt",node1->m_data.GetDataFile());
+  ASSERT_EQ("list/2.txt",node1->m_data->GetDataFile());
   node1 = treeClassifier.FindByName("E");
-  ASSERT_EQ("list/3.txt",node1->m_data.GetDataFile());  
+  ASSERT_EQ("list/3.txt",node1->m_data->GetDataFile());  
 }
 
 
-TEST(TestSeedsImages, test_training)
+TEST(TestTraining, test_training)
+{
+  Tree<ClassifierNode> treeClassifier;
+  TreeNode<ClassifierNode> *node1;
+  treeClassifier.CreateTree("treeFile.txt");
+  LoadSeedImg(treeClassifier, "list/SeedImages.txt","1");
+  GetNodesTrain(treeClassifier);  
+}
+
+
+TEST(TestTraining, test_predict)
 {
   Tree<ClassifierNode> treeClassifier;
   TreeNode<ClassifierNode> *node1;
   treeClassifier.CreateTree("treeFile.txt");
   LoadSeedImg(treeClassifier, "list/SeedImages.txt","1");
   GetNodesTrain(treeClassifier);
+  vector<string> labels;
+  vector< vector<LabelPair> >  all_label_probs;  
+  ClassifyImages(treeClassifier, "test.txt",labels);
+  ClassifyImagesProb(treeClassifier, "test.txt",all_label_probs);
+  ASSERT_EQ(3,labels.size());
+  ASSERT_EQ("C",labels[0]);
+  ASSERT_EQ("D",labels[1]);
+  ASSERT_EQ("E",labels[2]);
+  for (int i = 0; i < all_label_probs[0].size() ; ++i)
+  {
+    LabelPair label_pair = all_label_probs[0][i];
+    string label = label_pair.first;
+    double prob = label_pair.second;
+    cout<<label<<":"<<prob<<endl;    
+  }  
+  for (int i = 0; i < all_label_probs.size() ; ++i)
+  {
+    ASSERT_EQ(3, all_label_probs[i].size());
+    double prob_sum = 0;
+    for (int j = 0; j < all_label_probs[i].size(); ++j)
+    {
+      prob_sum +=all_label_probs[i][j].second;      
+    }
+    ASSERT_TRUE( abs((prob_sum-1)) <1e-5);    
+  }
   
 }
 
 
-TEST(TestSeedsImages, test_predict)
+TEST(TestSeedsImages, test_train)
 {
   Tree<ClassifierNode> treeClassifier;
   TreeNode<ClassifierNode> *node1;
-  treeClassifier.CreateTree("treeFile.txt");
-  LoadSeedImg(treeClassifier, "list/SeedImages.txt","1");
+  treeClassifier.CreateTree("synthetic_data/TreeFile.txt");
+  LoadSeedImg(treeClassifier, "synthetic_data/SeedImages.txt","1");  
   GetNodesTrain(treeClassifier);
   vector<string> labels;  
-  ClassifyImages(treeClassifier, "test.txt",labels);
-  ASSERT_EQ(3,labels.size());
-  ASSERT_EQ("C",labels[0]);
-  ASSERT_EQ("D",labels[1]);
-  ASSERT_EQ("E",labels[2]);  
+  ClassifyImages(treeClassifier, "synthetic_data/4_test.txt",labels);
+  for (int i =0;i<labels.size(); ++i)
+    cout<<labels[i]<<" ";
+  cout << endl;
 }
